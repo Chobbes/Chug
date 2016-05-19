@@ -10,3 +10,6 @@ data Expr a = Mult a (Expr a) (Expr a)
             | Mod a (Expr a) (Expr a)
             | Add a (Expr a) (Expr a)
             | Sub a (Expr a) (Expr a)
+            | IntLit a Integer
+            | Ident a String
+            deriving (Show)

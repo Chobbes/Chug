@@ -1,8 +1,14 @@
 module Parser where
 
+import AST
 import Text.Parser.Expression
 import Text.Parser.Token.Style
+import Text.Parser.Token.Highlight
 import Text.Parser.Token
+import Text.Parser.Char
+import Text.Trifecta
+import Text.Trifecta.Combinators
+import Control.Applicative
 import qualified Data.HashSet as HS
 
 
@@ -17,7 +23,7 @@ cIdentifierStyle :: TokenParsing m => IdentifierStyle m
 cIdentifierStyle = IdentifierStyle
   { _styleName = "C identifier style"
   , _styleStart = letter <|> char '_'
-  , _styleLetter = alphaNum <|>  '_'
+  , _styleLetter = alphaNum <|> char '_'
   , _styleReserved = HS.fromList cKeywords
   , _styleHighlight = Identifier
   , _styleReservedHighlight = ReservedIdentifier
@@ -44,19 +50,26 @@ cExpression = buildExpressionParser cOperatorTable cTerm
             <?> "Expression"
 
 
-cOperatorTable :: OperatorTable m (Expr Span)
-cOperatorTable = [ leftAssoc [binary "*" Mult, binary "/" Div, binary "%" Mod]
-                 , leftAssoc [binary "+" Add, binary "-" Sub]
+cOperatorTable :: (DeltaParsing m, Applicative m) => OperatorTable m (Expr Span)
+cOperatorTable = [ pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary "%" Mod]
+                 , pure AssocLeft <**> [binary "+" Add, binary "-" Sub]
                  ]
-  where leftAssoc = (<**>) (pure AssocLeft)
-        rightAssoc = (<**>) (pure AssocRight)
-        binary op f assoc = Infix (f <$> spanned (reservedOp op)) assoc
-        prefix op f = Prefix (f <$> spanned (reservedOp op))
-        postfix op f = Postfix (f <$> spanned (reservedOp op))
+  where binary op f assoc = Infix (spannotate f <$> spanned (reservedOp op)) assoc
+        prefix op f = Prefix (spannotate f <$> spanned (reservedOp op))
+        postfix op f = Postfix (spannotate f <$> spanned (reservedOp op))
 
 
--- | Add a span annotation to an element.
-annotate :: DeltaParsing m => (Span -> a -> s) -> m a -> m s
-annotate spanify ma = createSpan <$> spanned ma
-  where createSpan :: Spanned a -> a -> s
-        createSpan (a :~ span) = spanify a span
+cTerm :: DeltaParsing m => m (Expr Span)
+cTerm = spannotate1 IntLit <$> spanned natural
+
+-- | Spanned to an annotation.
+spannotate :: (Span -> b) -> Spanned a -> b
+spannotate f (_ :~ span) = f span
+
+-- | Spanned to an annotation.
+spannotate1 :: (Span -> a -> b) -> Spanned a -> b
+spannotate1 f (a :~ span) = f span a
+
+
+reservedOp :: (TokenParsing m, Monad m) => String -> m ()
+reservedOp = reserve emptyOps
