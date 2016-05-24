@@ -51,7 +51,8 @@ cExpression = buildExpressionParser cOperatorTable cTerm
 
 
 cOperatorTable :: (DeltaParsing m, Applicative m) => OperatorTable m (Expr Span)
-cOperatorTable = [ pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary "%" Mod]
+cOperatorTable = [ [prefix "-" Neg]  
+                 , pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary "%" Mod]
                  , pure AssocLeft <**> [binary "+" Add, binary "-" Sub]
                  ]
   where binary op f assoc = Infix (spannotate f <$> spanned (reservedOp op)) assoc
@@ -60,7 +61,8 @@ cOperatorTable = [ pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary 
 
 
 cTerm :: DeltaParsing m => m (Expr Span)
-cTerm = spannotate1 IntLit <$> spanned natural
+cTerm = ((spannotate1 IntLit <$> spanned natural) <?> "IntLit")
+      <|> ((parens cExpression) <?> "Parens")
 
 -- | Spanned to an annotation.
 spannotate :: (Span -> b) -> Spanned a -> b
