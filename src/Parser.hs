@@ -62,7 +62,7 @@ cOperatorTable = [ [prefix "-" Neg]
 
 cTerm :: DeltaParsing m => m (Expr Span)
 cTerm = ((spannotate1 IntLit <$> spanned natural) <?> "IntLit")
-      <|> ((parens cExpression) <?> "Parens")
+      <|> ((spannotate1 Parens <$> spanned (parens cExpression)) <?> "Parens")
 
 -- | Spanned to an annotation.
 spannotate :: (Span -> b) -> Spanned a -> b
