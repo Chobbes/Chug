@@ -46,16 +46,19 @@ cKeywords = [ "auto", "enum", "restrict", "unsigned"
 
 
 cExpression :: DeltaParsing m => m (Expr Span)
-cExpression = buildExpressionParser cOperatorTable cTerm
-            <?> "Expression"
+cExpression = whiteSpace
+    *> buildExpressionParser cOperatorTable cTerm
+    <* whiteSpace
+    <?> "Expression"
 
 
 cOperatorTable :: (DeltaParsing m, Applicative m) => OperatorTable m (Expr Span)
-cOperatorTable = [ [prefix "-" Neg, prefix "+" Pos]
-                 , pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary "%" Mod]
-                 , pure AssocLeft <**> [binary "+" Add, binary "-" Sub]
-                 ]
-  where binary op f assoc = Infix (spannotate f <$> spanned (reservedOp op)) assoc
+cOperatorTable = 
+  [ [prefix "-" Neg, prefix "+" Pos]
+  , pure AssocLeft <**> [binary "*" Mult, binary "/" Div, binary "%" Mod]
+  , pure AssocLeft <**> [binary "+" Add, binary "-" Sub]
+  ]
+  where binary op f = Infix (spannotate f <$> spanned (reservedOp op))
         prefix op f = Prefix (spannotate f <$> spanned (reservedOp op))
         -- postfix op f = Postfix (spannotate f <$> spanned (reservedOp op))
 
@@ -100,34 +103,60 @@ data Stmnt a = If a (Expr a) (Stmnt a)
 -}
 
 
-cStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
-cStatement = 
-  asum [ try (ifElseStatement) <|> ifStatement
-       , expressionStatement
-       , blockStatement
-       ]
+parenedExpression :: (TokenParsing m, DeltaParsing m) => m (Expr Span)
+parenedExpression = whiteSpace *> parens cExpression <* whiteSpace
 
+cStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
+cStatement =
+     whiteSpace
+  *> asum [ try ifElseStatement <|> ifStatement
+          , whileStatement
+          , doStatement
+          , expressionStatement
+          , blockStatement
+          ]
+  <* whiteSpace
 
 ifStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
-ifStatement = (spannotate2 If)
-    <$> spanned (reserved "if" *> whiteSpace *> parens cExpression <* whiteSpace)
-    <*> spanned (cStatement <* whiteSpace)
+ifStatement = spannotate2 If
+    <$> spanned (reserved "if" *> parenedExpression)
+    <*> spanned cStatement
     <?> "if statement"
 
 
 ifElseStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
-ifElseStatement = (spannotate3 IfElse)
-    <$> spanned (reserved "if" *> whiteSpace *> parens cExpression <* whiteSpace)
-    <*> spanned (cStatement <* whiteSpace)
-    <*> spanned (reserved "else" *> whiteSpace *> cStatement <* whiteSpace)
+ifElseStatement = spannotate3 IfElse
+    <$> spanned (reserved "if" *> parenedExpression)
+    <*> spanned cStatement
+    <*> spanned (reserved "else" *> cStatement)
     <?> "if else statement"
 
 
+whileStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
+whileStatement = spannotate2 While
+    <$> spanned (reserved "while" *> parenedExpression)
+    <*> spanned cStatement
+    <?> "while statement"
+
+
+doStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
+doStatement = spannotate2 DoWhile
+    <$> spanned (reserved "do" *> cStatement)
+    <*> spanned (reserved "while" *> parenedExpression <* reserved ";")
+
+
+forStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
+forStatement = spannotate2 For
+    <$> spanned (reserved "for" *> whiteSpace *> reserved)
+
 expressionStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
 expressionStatement = spannotate1 ExprStmnt
-    <$> (spanned $ cExpression <* string ";" <* whiteSpace)
+    <$> spanned (cExpression <* reserved ";" <* whiteSpace)
     <?> "expression statement"
 
 
 blockStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
-blockStatement = spannotate1 Block <$> (spanned $ braces (many cStatement))
+blockStatement = spannotate1 Block <$> spanned (braces (many cStatement))
+    <?>  "block statement"
+
+
