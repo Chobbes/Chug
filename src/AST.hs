@@ -13,45 +13,45 @@ indentLevel = 4
 
 
 -- | C expressions with annotations.
-data Expr a b = Mult a (Expr a b) (Expr a b) b
-              | Div a (Expr a b) (Expr a b) b
-              | Mod a (Expr a b) (Expr a b) b
-              | Add a (Expr a b) (Expr a b) b
-              | Sub a (Expr a b) (Expr a b) b
-              | Neg a (Expr a b) b
-              | Pos a (Expr a b) b
-              | IntLit a Integer b
-              | Ident a String b
-              | Parens a (Expr a b) b
-              deriving (Show)
+data Expr a = Mult a (Expr a) (Expr a)
+            | Div a (Expr a) (Expr a)
+            | Mod a (Expr a) (Expr a)
+            | Add a (Expr a) (Expr a)
+            | Sub a (Expr a) (Expr a)
+            | Neg a (Expr a)
+            | Pos a (Expr a)
+            | IntLit a Integer
+            | Ident a String
+            | Parens a (Expr a)
+            deriving (Show)
 
 
 -- | C statements with annotations.
-data Stmnt a b = If a (Expr a b) (Stmnt a b) b
-               | IfElse a (Expr a b) (Stmnt a b) (Stmnt a b) b
-               | While a (Expr a b) (Stmnt a b) b
-               | DoWhile a (Stmnt a b) (Expr a b) b
-               | For a (Expr a b) (Expr a b) (Expr a b) (Stmnt a b) b
-               | Block a [Stmnt a b] b
-               | ExprStmnt a b (Expr a b) b
-               deriving (Show)
+data Stmnt a = If a (Expr a) (Stmnt a)
+             | IfElse a (Expr a) (Stmnt a) (Stmnt a)
+             | While a (Expr a) (Stmnt a)
+             | DoWhile a (Stmnt a) (Expr a)
+             | For a (Expr a) (Expr a) (Expr a) (Stmnt a)
+             | Block a [Stmnt a]
+             | ExprStmnt a (Expr a)
+             deriving (Show)
 
 
-instance Pretty (Expr a b) where
-  pretty (Mult _ a b _) = pretty a <+> "*" <+> pretty b
-  pretty (Div _ a b _) = pretty a <+> "/" <+> pretty b
-  pretty (Mod _ a b _) = pretty a <+> "%" <+> pretty b
-  pretty (Add _ a b _) = pretty a <+> "+" <+> pretty b
-  pretty (Sub _ a b _) = pretty a <+> "-" <+> pretty b
-  pretty (Neg _ a _) = "-" <> pretty a
-  pretty (Pos _ a _) = "+" <> pretty a
-  pretty (IntLit _ a _) = pretty a
-  pretty (Ident _ a _) = pretty a
-  pretty (Parens _ a _) = "(" <> pretty a <> ")"
+instance Pretty (Expr a) where
+  pretty (Mult _ a b) = pretty a <+> "*" <+> pretty b
+  pretty (Div _ a b) = pretty a <+> "/" <+> pretty b
+  pretty (Mod _ a b) = pretty a <+> "%" <+> pretty b
+  pretty (Add _ a b) = pretty a <+> "+" <+> pretty b
+  pretty (Sub _ a b) = pretty a <+> "-" <+> pretty b
+  pretty (Neg _ a) = "-" <> pretty a
+  pretty (Pos _ a) = "+" <> pretty a
+  pretty (IntLit _ a) = pretty a
+  pretty (Ident _ a) = pretty a
+  pretty (Parens _ a) = "(" <> pretty a <> ")"
 
 
-instance Pretty (Stmnt a b) where
-  pretty (If _ e s _) =
+instance Pretty (Stmnt a) where
+  pretty (If _ e s) =
     vcat ["if (" <> pretty e <> ")"
          , indent indentLevel (pretty s)
          ]

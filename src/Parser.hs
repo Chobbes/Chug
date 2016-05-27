@@ -83,6 +83,10 @@ spannotate2 f (a :~ spanA) (b :~ spanB) = f (spanA <> spanB) a b
 spannotate3 :: (Span -> a -> b -> c -> d) -> Spanned a -> Spanned b -> Spanned c -> d
 spannotate3 f (a :~ spanA) (b :~ spanB) (c :~ spanC) = f (spanA <> spanB <> spanC) a b c
 
+-- | Spanned to annotation.
+spannotate4 :: (Span -> a -> b -> c -> d -> e) -> Spanned a -> Spanned b -> Spanned c -> Spanned d -> e
+spannotate4 f (a :~ spanA) (b :~ spanB) (c :~ spanC) (d :~ spanD) =
+  f (spanA <> spanB <> spanC <> spanD) a b c d
 
 reservedOp :: (TokenParsing m, Monad m) => String -> m ()
 reservedOp = reserve emptyOps
@@ -112,6 +116,7 @@ cStatement =
   *> asum [ try ifElseStatement <|> ifStatement
           , whileStatement
           , doStatement
+          , forStatement
           , expressionStatement
           , blockStatement
           ]
@@ -142,16 +147,21 @@ whileStatement = spannotate2 While
 doStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
 doStatement = spannotate2 DoWhile
     <$> spanned (reserved "do" *> cStatement)
-    <*> spanned (reserved "while" *> parenedExpression <* reserved ";")
+    <*> spanned (reserved "while" *> parenedExpression <* semiColon)
 
 
 forStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
-forStatement = spannotate2 For
-    <$> spanned (reserved "for" *> whiteSpace *> reserved)
+forStatement = spannotate4 For
+    <$> spanned (reserved "for" *> openPar *> cExpression <* semiColon)
+    <*> spanned (cExpression <* semiColon)
+    <*> spanned (cExpression <* closePar)
+    <*> spanned cStatement
+    <?> "for statement"
+
 
 expressionStatement :: (TokenParsing m, DeltaParsing m) => m (Stmnt Span)
 expressionStatement = spannotate1 ExprStmnt
-    <$> spanned (cExpression <* reserved ";" <* whiteSpace)
+    <$> spanned (cExpression <* semiColon)
     <?> "expression statement"
 
 
@@ -160,3 +170,11 @@ blockStatement = spannotate1 Block <$> spanned (braces (many cStatement))
     <?>  "block statement"
 
 
+semiColon :: (TokenParsing m, Monad m) => m ()
+semiColon = whiteSpace *> reserved ";" *> whiteSpace
+
+openPar :: (TokenParsing m, Monad m) => m ()
+openPar = whiteSpace *> reserved "(" *> whiteSpace
+
+closePar :: (TokenParsing m, Monad m) => m ()
+closePar = whiteSpace *> reserved ")" *> whiteSpace
